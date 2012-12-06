@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <ctime>
 
 bool mFor, mBack, mLeft, mRight, cUp, cDown, cLeft, cRight, cJump, cFall, spaceDown, delDown;
 extern float cameraZ;
@@ -24,6 +25,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(animationTimer, SIGNAL(timeout()), this, SLOT(drawOpenGL()));
     // we start the timer with a timeout interval of 20ms
     animationTimer->start(20);
+
+    srand ( time(NULL) );
+
+
 }
 
 void MainWindow::drawOpenGL()

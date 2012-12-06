@@ -3,7 +3,6 @@
 #include <OpenGL/glu.h>
 #include <QMouseEvent>
 #include <cmath>
-#include <ctime>
 #include "flock.h"
 #include "bird.h"
 
@@ -25,22 +24,18 @@ BasicOpenGLView::BasicOpenGLView(QWidget *parent) :
     projectionMatrix(),
     viewMatrix()
 {
+    flock = Flock();
 
+    for (int i = 0; i < 50; i++) {
 
+        Bird *tempBird = new Bird(0,0,50,i,(float)rand()/(float)RAND_MAX,0 + (float)rand()/(float)RAND_MAX,0 + (float)rand()/(float)RAND_MAX);
+        flock.newBird(*tempBird);
+    }
 }
 
 void BasicOpenGLView::initializeGL()
 {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-    flock = Flock();
-
-    for (int i = 0; i < 50; i++) {
-        Bird *tempBird = new Bird(0,0,0,i);
-        flock.newBird(*tempBird);
-    }
-
-
 
     //Timer which updates the GL render.
     QTimer *timer = new QTimer();
@@ -127,6 +122,18 @@ void BasicOpenGLView::paintGL()
     glLoadMatrixd(viewMatrix.data());
     //glEnable(GL_DEPTH_TEST);
 
+    glPushMatrix();
+
+        //Initialize lighting
+        GLfloat light_pos[] = {1.0, 2.0, 3.0, 1.0};
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity( );
+        glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
+
+        glPopMatrix();
+
     flock.animate();
 }
 
@@ -138,7 +145,7 @@ void BasicOpenGLView::resizeGL(int width, int height)
 
     glMatrixMode(GL_PROJECTION);
     projectionMatrix.setToIdentity();
-    projectionMatrix.perspective(60.0f, (float)windowWidth/(float)windowHeight, 0.01f, 200.0f);
+    projectionMatrix.perspective(60.0f, (float)windowWidth/(float)windowHeight, 0.01f, 500.0f);
 
     glLoadMatrixd(projectionMatrix.data());
 

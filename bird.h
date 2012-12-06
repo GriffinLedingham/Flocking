@@ -8,7 +8,7 @@ class Bird
 {
 public:
     Bird();
-    Bird(float,float,float,int);
+    Bird(float,float,float,int,float,float,float);
     void animate(QVector<Bird>);
     void applyForce(QVector3D);
     void flock(QVector<Bird>);
@@ -20,6 +20,7 @@ public:
     QVector3D cohes(QVector<Bird>);
     QVector3D limit(QVector3D,float);
     float getAngle(QVector3D);
+    void boundary();
 
 private:
     QVector3D position;
@@ -29,6 +30,9 @@ private:
     float maxvelocity;
     float maxforce;
 
+    float redColor;
+    float greenColor;
+    float blueColor;
 };
 
 #endif // BIRD_H
