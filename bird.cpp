@@ -9,9 +9,11 @@
 #include <OpenGL/glu.h>
 #include <QDebug>
 #include <iostream>
+#include "cube.h"
 using namespace std;
 
-
+extern bool boundaryDis;
+QVector3D topGlobal,noseGlobal,leftGlobal,rightGlobal;
 
 Bird::Bird()
 {
@@ -21,38 +23,35 @@ Bird::Bird()
 
 Bird::Bird(float x, float y, float z, int i,float red,float green,float blue)
 {
-
-
     this->acceleration = QVector3D(0,0,0);
     float velocityX,velocityY,velocityZ;
     velocityX = -1+2*((float)rand())/(float)RAND_MAX;
     velocityY = -1+2*((float)rand())/(float)RAND_MAX;
     velocityZ = -1+2*((float)rand())/(float)RAND_MAX;
 
-
     this->velocity = QVector3D(velocityX,velocityY,velocityZ);
-
     this->position = QVector3D(x,y,z);
 
     r = 2.0f;
-    maxvelocity = .2;
+    maxvelocity = .5;
     maxforce = .03f;
-    //qDebug("%d", i);
 
     this->redColor = red;
     this->greenColor = green;
     this->blueColor = blue;
-
-
-
-
+    this->wingStep = .2;
+    this->wingHeight = 0;
 }
 
-void Bird::animate(QVector<Bird> birds) //run
+void Bird::animate(QVector<Bird> birds, QVector<cube> cubes) //run
 {
-    flock(birds);
+    flock(birds,cubes);
     update();
-    boundary();
+    collisionDetect(cubes);
+    if(!boundaryDis)
+    {
+        boundary();
+    }
     draw();
 }
 
@@ -61,9 +60,9 @@ void Bird::applyForce(QVector3D force)
     acceleration += force;
 }
 
-void Bird::flock(QVector<Bird> birds)
+void Bird::flock(QVector<Bird> birds, QVector<cube> cubes)
 {
-    QVector3D separation = separate(birds);
+    QVector3D separation = separate(birds,cubes);
     QVector3D alignment = align(birds);
     QVector3D cohesion = cohes(birds);
 
@@ -78,10 +77,12 @@ void Bird::flock(QVector<Bird> birds)
 
 void Bird::update()
 {
+    QVector3D oldPos = position;
     velocity+=acceleration;
     velocity = limit(velocity,maxvelocity);
     position+=velocity;
     acceleration = QVector3D(0,0,0);
+    direction = position - oldPos;
 }
 
 QVector3D Bird::limit(QVector3D vec, float limit)
@@ -99,40 +100,19 @@ QVector3D Bird::limit(QVector3D vec, float limit)
     }
 }
 
-
-
 QVector3D Bird::seek(QVector3D target)
 {
-    //might be backwards
     QVector3D desired = target - position;
     desired.normalize();
     desired*= maxvelocity;
-    //might be backwards
     QVector3D steer = desired - velocity;
     steer = limit(steer,maxforce);
 
     return steer;
 }
 
-void Bird::draw() //render
+void Bird::draw()
 {
-    /*//float angle = getAngle(velocity) + 1.57079633;
-    //QQuaternion thisQuat = QQuaternion(position.x(),position.y(),position.z(),0);
-    //QQuaternion zeroQuat = (0,0,0,0);
-    //QQuaternion = QQuaternion::slerp(thisQuat,zeroQuat);
-    glPushMatrix();
-    glTranslatef(position.x(),position.y(),position.z());
-    glColor3f(1.0,0,1.0);
-    //glRotatef();
-    //qDebug("drawing1");
-    GLUquadricObj *quadric;
-    quadric = gluNewQuadric();
-    gluQuadricDrawStyle(quadric, GLU_FILL );
-    gluSphere(quadric,1,100,100);
-    gluDeleteQuadric(quadric);
-    glPopMatrix();
-    //qDebug("drawing2");*/
-
     //color
     float mat_ambient_color[] = {redColor, greenColor, blueColor, 1.0f};
     float high_shininess = 100.0f;
@@ -149,14 +129,12 @@ void Bird::draw() //render
 
     glPushMatrix();
 
-    //glColor3f(redColor,greenColor,blueColor);
-
-    //cout << redColor << "..." << greenColor << endl;
-
     QVector3D tail = QVector3D::crossProduct(velocity,QVector3D(0,1,0));
+    tailGlobal = tail;
     tail.normalize();
     QVector3D tailMidPoint = position - velocity.normalized() * 1.0f;
     QVector3D nose = position + velocity.normalized() * 6.0f;
+    noseGlobal = nose;
 
     QVector3D left = tailMidPoint;
     left -= tail * 3;
@@ -164,8 +142,31 @@ void Bird::draw() //render
     right += tail * 3;
     QVector3D top = tailMidPoint;
     top += QVector3D(0,1,0) *3;
+    topGlobal = top;
     QVector3D bottom = tailMidPoint;
     bottom -= QVector3D(0,1,0)*3;
+    leftGlobal = left;
+    rightGlobal = right;
+
+    wingHeight += wingStep;
+    if(wingHeight>4)
+    {
+        wingStep = -.2f;
+    }
+    if(wingHeight<-4)
+    {
+        wingStep = .2f;
+    }
+
+   /* QVector3D wingFront = tail + 2*((nose-tail)/3);
+    QVector3D wingBack = tail + ((nose-tail)/3);
+    QVector3D rightWingPoint = wingBack + ((wingFront-wingBack)/2) + QVector3D(1,0,0)*6;
+    QVector3D leftWingPoint = wingBack + ((wingFront-wingBack)/2) - QVector3D(1,0,0)*6;
+
+    //QVector3D rightWingPoint = tail + right*3 + QVector3D(0,1,0)*wingHeight;
+    //QVector3D leftWingPoint = tail + left*3 + QVector3D(0,1,0)*wingHeight;
+*/
+
 
     glBegin(GL_QUADS);
     glVertex3f(nose.x(),nose.y(),nose.z());
@@ -202,138 +203,78 @@ void Bird::draw() //render
     glVertex3f(right.x(),right.y(),right.z());
     glEnd();
 
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,-64,-3);
-    glVertex3f(-124,-64,-3);
+
+
+    /*glBegin(GL_QUADS);
+    glVertex3f(wingFront.x(),wingFront.y(),wingFront.z());
+    glVertex3f(wingBack.x(),wingBack.y(),wingBack.z());
+    glVertex3f(rightWingPoint.x(),rightWingPoint.y(),rightWingPoint.z());
+    glVertex3f(rightWingPoint.x(),rightWingPoint.y(),rightWingPoint.z());
     glEnd();
 
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,64,-3);
-    glVertex3f(-124,64,-3);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,-64,104);
-    glVertex3f(-124,-64,104);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,64,104);
-    glVertex3f(-124,64,104);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,64,104);
-    glVertex3f(124,64,-3);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,-64,104);
-    glVertex3f(124,-64,-3);
-    glEnd();
-
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(-124,-64,104);
-    glVertex3f(-124,-64,-3);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(-124,64,104);
-    glVertex3f(-124,64,-3);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(-124,-64,-3);
-    glVertex3f(-124,64,-3);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,-64,-3);
-    glVertex3f(124,64,-3);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(-124,-64,104);
-    glVertex3f(-124,64,104);
-    glEnd();
-
-    glBegin(GL_LINES);
-    glLineWidth(5);
-    glVertex3f(124,-64,104);
-    glVertex3f(124,64,104);
-    glEnd();
-
+    glBegin(GL_QUADS);
+    glVertex3f(wingFront.x(),wingFront.y(),wingFront.z());
+    glVertex3f(wingBack.x(),wingBack.y(),wingBack.z());
+    glVertex3f(leftWingPoint.x(),leftWingPoint.y(),leftWingPoint.z());
+    glVertex3f(leftWingPoint.x(),leftWingPoint.y(),leftWingPoint.z());
+    glEnd();*/
     glPopMatrix();
 
+    //Wing code below.
+    //Wings do not stay attached to body.
+/*
+    glBegin(GL_QUADS);
+    glVertex3f(nose.x(),nose.y(),nose.z() + 3);
+    glVertex3f(nose.x(),nose.y(),nose.z() + 7);
+    glVertex3f(nose.x()-5,nose.y() + wingHeight,nose.z() + 5);
+    glVertex3f(nose.x()-5,nose.y() + wingHeight,nose.z() + 5);
+    glEnd();
+
+    glBegin(GL_QUADS);
+    glVertex3f(nose.x(),nose.y(),nose.z() + 3);
+    glVertex3f(nose.x(),nose.y(),nose.z() + 7);
+    glVertex3f(nose.x()+5,nose.y() + wingHeight,nose.z() + 5);
+    glVertex3f(nose.x()+5,nose.y() + wingHeight,nose.z() + 5);
+    glEnd();
+
+*/
 
 }
 
-QVector3D Bird::separate(QVector<Bird> birds)
+void Bird::collisionDetect(QVector<cube> cubes)
 {
-    float desiredSeparation = 10.0f;
-    QVector3D steer = QVector3D(0,0,0);
-    int count = 0;
 
-    QVector<Bird>::iterator bird;
-    for(bird = birds.begin(); bird != birds.end(); bird++)
+    QVector<cube>::iterator cube;
+    for(cube = cubes.begin(); cube != cubes.end(); cube++)
     {
-        float d = (position-(*bird).position).length();//QVector3D::distanceToLine(this->position,(*bird).position);
-        //QVector3D::
-        if(d>0 && d < desiredSeparation)
+        float d = (position-(*cube).cubePos).length();
+        if(d>0 && d < 2*(*cube).radius)
         {
-            QVector3D diff = position - (*bird).position;
-            diff.normalize();
-            diff /= d;
-            steer += diff;
-            count++;
+            QVector3D diff = position - (*cube).cubePos;
+            applyForce(diff);
         }
     }
-    if(count > 0)
-    {
-        steer /= (float)count;
-    }
-    if(steer.length() > 0)
-    {
-        steer.normalize();
-        steer *= maxvelocity;
-        steer -= velocity;
-    }
-
-    steer = limit(steer, maxforce);
-
-
-    return steer;
 }
+
+
 
 QVector3D Bird::align(QVector<Bird> birds)
 {
-    float neighbordist = 30;
+    float dist = 30;
     QVector3D sum = QVector3D(0,0,0);
     int count = 0;
     QVector<Bird>::iterator bird;
     for(bird = birds.begin(); bird != birds.end(); bird++)
     {
         float d = (position - (*bird).position).length();
-        if ((d > 0) && (d < neighbordist)) {
+        if ((d > 0) && (d < dist))
+        {
             sum+= (*bird).velocity;
             count++;
         }
     }
     if (count > 0)
     {
-        sum /= (float)count;
         sum.normalize();
         sum *= maxvelocity;
         QVector3D steer = sum-velocity;
@@ -348,14 +289,15 @@ QVector3D Bird::align(QVector<Bird> birds)
 
 QVector3D Bird::cohes(QVector<Bird> birds)
 {
-    float neighbordist = 30;
-    QVector3D sum = QVector3D(0,0,0);
     int count = 0;
+    float dist = 30;
+    QVector3D sum = QVector3D(0,0,0);
     QVector<Bird>::iterator bird;
     for(bird = birds.begin(); bird != birds.end(); bird++)
     {
         float d = (position - (*bird).position).length();
-        if ((d > 0) && (d < neighbordist)) {
+        if ((d > 0) && (d < dist))
+        {
             sum+= (*bird).position;
             count++;
         }
@@ -364,13 +306,49 @@ QVector3D Bird::cohes(QVector<Bird> birds)
     if (count > 0)
     {
         sum /=count;
-        return seek(sum);  // Steer towards the location
+        return seek(sum);
     }
     else
     {
         return QVector3D(0,0,0);
     }
 
+}
+
+QVector3D Bird::separate(QVector<Bird> birds, QVector<cube> cubes)
+{
+    float desiredSeparation = 10.0f;
+    QVector3D steer = QVector3D(0,0,0);
+    int count = 0;
+
+    QVector<Bird>::iterator bird;
+    for(bird = birds.begin(); bird != birds.end(); bird++)
+    {
+        float d = (position-(*bird).position).length();
+        if(d>0 && d < desiredSeparation)
+        {
+            QVector3D diff = position - (*bird).position;
+            diff.normalize();
+            diff /= d;
+            steer += diff;
+            count++;
+        }
+    }
+
+    if(count > 0)
+    {
+        steer /= (float)count;
+    }
+    if(steer.length() > 0)
+    {
+        steer.normalize();
+        steer *= maxvelocity;
+        steer -= velocity;
+    }
+
+    steer = limit(steer, maxforce);
+
+    return steer;
 }
 
 void Bird::boundary()
@@ -405,18 +383,18 @@ void Bird::boundary()
         position.setX(-position.x());
     }
 
-    if(position.z() > 100 || position.z() < 1)
+    if(position.z() > 200 || position.z() < 1)
     {
-        if(position.z() > 50)
+        if(position.z() > 100)
         {
             position.setZ(10);
         }
         else
         {
-            position.setZ(100);
+            position.setZ(200);
 
         }
-
-        //position.setZ(-position.z());
     }
 }
+
+

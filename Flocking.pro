@@ -15,14 +15,22 @@ SOURCES += \
     main.cpp \
     basicopenglview.cpp \
     bird.cpp \
-    flock.cpp
+    flock.cpp \
+    springConstraint.cpp \
+    cloth.cpp \
+    massPoint.cpp \
+    cube.cpp
 
 HEADERS  += \
     ui_mainwindow.h \
     mainwindow.h \
     basicopenglview.h \
     bird.h \
-    flock.h
+    flock.h \
+    cloth.h \
+    springConstraint.h \
+    massPoint.h \
+    cube.h
 
 FORMS    += \
     mainwindow.ui

@@ -3,15 +3,19 @@
 
 #include <Qvector>
 #include "bird.h"
+#include "cube.h"
 
 class Flock
 {
 public:
     Flock();
+    Flock(QVector<cube>);
     void animate();
     void newBird(Bird);
-private:
     QVector<Bird> birds;
+    QVector<cube> cubes;
+
+private:
 
 };
 

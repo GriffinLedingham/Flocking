@@ -3,12 +3,26 @@
 #include <ctime>
 
 bool mFor, mBack, mLeft, mRight, cUp, cDown, cLeft, cRight, cJump, cFall, spaceDown, delDown;
+float windX=0.20f;
+float windY=0.20f;
+float windZ=0.01f;
+float damping=.00f; //how much to damp the cloth simulation each frame
+int springConstraintCalculations = 20; //how many springConstraint calculations occur each time step
+
+int flagWidth = 14;
+int flagHeight = 10;
+float timestep=0.3f;
+
+int verticalSpringCount = 16; //how many vertical springConstraints in the cloth
+int horizontalSpringCount = 20; //how many horizontal springConstraints in the cloth
 extern float cameraZ;
 extern float cameraX;
 extern float cameraY;
 extern float cameraRotHor;
 extern float cameraRotVer;
-int camView;
+bool boundaryDis = false;
+
+bool birdCam = false;
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -176,3 +190,34 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     }
 }
 
+
+void MainWindow::on_horizontalSlider_valueChanged(int value)
+{
+    if(value == 1)
+    {
+        birdCam = true;
+        cameraRotHor = 0;
+        cameraRotVer = 0;
+    }
+    else
+    {
+        birdCam = false;
+        cameraRotHor = 0;
+        cameraRotVer = 0;
+        cameraZ = -10.0f;
+        cameraX = 0.0f;
+        cameraY = -3.0f;
+    }
+}
+
+void MainWindow::on_checkBox_stateChanged(int arg1)
+{
+    if(arg1)
+    {
+        boundaryDis=true;
+    }
+    else
+    {
+        boundaryDis=false;
+    }
+}

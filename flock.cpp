@@ -3,7 +3,13 @@
 
 Flock::Flock()
 {
+
+}
+
+Flock::Flock(QVector<cube> cubesIn)
+{
     birds = QVector<Bird>();
+    cubes = cubesIn;
 }
 
 void Flock::animate()
@@ -11,7 +17,7 @@ void Flock::animate()
     QVector<Bird>::iterator bird;
         for(bird = birds.begin(); bird != birds.end(); bird++)
         {
-            (*bird).animate(birds);
+            (*bird).animate(birds,cubes);
         }
 }
 
